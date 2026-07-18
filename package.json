@@ -1,0 +1,30 @@
+{
+  "name": "al-sat-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.2",
+    "lucide-react": "latest",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "sharp@0.34.5": true
+  }
+}

@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7fbfa;
+  --foreground: #12312d;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.hero-pattern {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(34, 197, 94, .18), transparent 28%),
+    radial-gradient(circle at 85% 15%, rgba(14, 165, 233, .20), transparent 30%),
+    linear-gradient(135deg, #effcf6, #eff8ff);
+}

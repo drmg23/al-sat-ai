@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 const categories = [
   "Emlak",
@@ -27,6 +29,7 @@ const cities = [
 ];
 
 export default function IlanVerPage() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -35,7 +38,9 @@ export default function IlanVerPage() {
   const [district, setDistrict] = useState("");
   const [phone, setPhone] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -46,6 +51,11 @@ export default function IlanVerPage() {
 
     if (files.length > 6) {
       alert("En fazla 6 fotoğraf yükleyebilirsiniz.");
+      return;
+    }
+
+    if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+      alert("Her fotoğraf en fazla 5 MB olabilir.");
       return;
     }
 
@@ -61,13 +71,19 @@ export default function IlanVerPage() {
     );
 
     Promise.all(imageReaders)
-      .then((results) => setImages(results))
+      .then((results) => {
+        setImages(results);
+        setImageFiles(files);
+      })
       .catch(() => alert("Fotoğraflar yüklenirken bir sorun oluştu."));
   }
 
   function removeImage(indexToRemove: number) {
     setImages((currentImages) =>
       currentImages.filter((_, index) => index !== indexToRemove)
+    );
+    setImageFiles((currentFiles) =>
+      currentFiles.filter((_, index) => index !== indexToRemove)
     );
   }
 
@@ -103,7 +119,7 @@ export default function IlanVerPage() {
     }, 900);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!title.trim()) {
@@ -131,9 +147,68 @@ export default function IlanVerPage() {
       return;
     }
 
-    alert(
-      "İlanınız başarıyla hazırlandı. Veritabanı bağlantısı kurulduğunda ilanınız kaydedilecek."
-    );
+    setIsSubmitting(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert("İlan vermek için önce giriş yapmalısınız.");
+        router.push("/giris");
+        return;
+      }
+
+      const photoUrls: string[] = [];
+
+      for (const file of imageFiles) {
+        const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("ilan-fotograflari")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(`Fotoğraf yüklenemedi: ${uploadError.message}`);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("ilan-fotograflari")
+          .getPublicUrl(filePath);
+        photoUrls.push(publicUrlData.publicUrl);
+      }
+
+      const { error: insertError } = await supabase.from("ilanlar").insert({
+        user_id: user.id,
+        baslik: title.trim(),
+        aciklama: description.trim(),
+        fiyat: Number(price),
+        kategori: category,
+        sehir: city,
+        ilce: district.trim() || null,
+        telefon: phone.trim() || null,
+        fotograflar: photoUrls,
+      });
+
+      if (insertError) {
+        throw new Error(`İlan kaydedilemedi: ${insertError.message}`);
+      }
+
+      alert("İlanınız başarıyla yayınlandı.");
+      router.push("/ilan");
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Bilinmeyen bir hata oluştu.";
+      alert(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -410,9 +485,10 @@ export default function IlanVerPage() {
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-emerald-600 px-8 py-3 font-black text-white shadow-lg transition hover:bg-emerald-700"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-emerald-600 px-8 py-3 font-black text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  İlanı Yayınla
+                  {isSubmitting ? "İlan yayınlanıyor..." : "İlanı Yayınla"}
                 </button>
               </div>
             </section>

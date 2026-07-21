@@ -88,7 +88,7 @@ export default function Home() {
 
             <nav className="nav">
               <a href="#kategoriler">Kategoriler</a>
-              <a href="#ilanlar">İlanlar</a>
+              <Link href="/ilan">İlanlar</Link>
               <a href="#yapay-zeka">Yapay Zekâ</a>
             </nav>
 
@@ -138,7 +138,9 @@ export default function Home() {
                   <option>Antalya</option>
                 </select>
 
-                <button type="button">🔍 İlan Ara</button>
+                <Link href="/ilan" className="search-button">
+                  🔍 İlan Ara
+                </Link>
               </div>
 
               <div className="hero-features">
@@ -242,9 +244,9 @@ export default function Home() {
                 <p>Yeni ve dikkat çeken ilanları hemen inceleyin.</p>
               </div>
 
-              <button type="button" className="outline-button">
+              <Link href="/ilan" className="outline-button">
                 Tüm ilanlar →
-              </button>
+              </Link>
             </div>
 
             <div className="listing-grid">
@@ -522,13 +524,17 @@ export default function Home() {
           border-left: 1px solid #dce6e8;
         }
 
-        .search-box button {
+        .search-box .search-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           padding: 15px 22px;
           color: white;
           background: linear-gradient(135deg, #069a80, #1676ca);
           border: none;
           border-radius: 12px;
           font-weight: 900;
+          text-decoration: none;
         }
 
         .hero-features {

@@ -97,6 +97,10 @@ export default function Home() {
                 Giriş Yap
               </Link>
 
+              <Link href="/ilanlarim" className="login-button">
+                Benim İlanlarım
+              </Link>
+
               <Link href="/ilan-ver" className="create-button">
                 + Ücretsiz İlan Ver
               </Link>
@@ -320,6 +324,7 @@ export default function Home() {
               <h3>Hesabım</h3>
               <Link href="/giris">Giriş yap</Link>
               <Link href="/kayit">Kayıt ol</Link>
+              <Link href="/ilanlarim">Benim ilanlarım</Link>
               <a href="#">Favorilerim</a>
             </div>
 

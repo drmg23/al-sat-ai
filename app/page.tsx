@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 const categories = [
   {
@@ -76,6 +80,43 @@ const featuredListings = [
 ];
 
 export default function Home() {
+  const [kullaniciVar, setKullaniciVar] = useState(false);
+  const [oturumKontrolEdiliyor, setOturumKontrolEdiliyor] = useState(true);
+
+  useEffect(() => {
+    async function oturumuKontrolEt() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setKullaniciVar(Boolean(session?.user));
+      setOturumKontrolEdiliyor(false);
+    }
+
+    oturumuKontrolEt();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setKullaniciVar(Boolean(session?.user));
+      setOturumKontrolEdiliyor(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function cikisYap() {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      alert("Çıkış yapılamadı: " + error.message);
+      return;
+    }
+
+    setKullaniciVar(false);
+    window.location.href = "/";
+  }
+
   return (
     <>
       <main>
@@ -93,13 +134,25 @@ export default function Home() {
             </nav>
 
             <div className="header-buttons">
-              <Link href="/giris" className="login-button">
-                Giriş Yap
-              </Link>
+              {!oturumKontrolEdiliyor && kullaniciVar ? (
+                <>
+                  <Link href="/ilanlarim" className="login-button">
+                    Benim İlanlarım
+                  </Link>
 
-              <Link href="/ilanlarim" className="login-button">
-                Benim İlanlarım
-              </Link>
+                  <button
+                    type="button"
+                    onClick={cikisYap}
+                    className="logout-button"
+                  >
+                    Çıkış Yap
+                  </button>
+                </>
+              ) : !oturumKontrolEdiliyor ? (
+                <Link href="/giris" className="login-button">
+                  Giriş Yap
+                </Link>
+              ) : null}
 
               <Link href="/ilan-ver" className="create-button">
                 + Ücretsiz İlan Ver
@@ -437,6 +490,7 @@ export default function Home() {
         }
 
         .login-button,
+        .logout-button,
         .create-button {
           padding: 12px 17px;
           border-radius: 12px;
@@ -445,6 +499,16 @@ export default function Home() {
 
         .login-button {
           color: #31505e;
+        }
+
+        .logout-button {
+          color: #b42318;
+          background: #fff;
+          border: 1px solid #fecaca;
+        }
+
+        .logout-button:hover {
+          background: #fff1f2;
         }
 
         .create-button {

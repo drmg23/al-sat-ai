@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -35,11 +36,13 @@ export default function GirisPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100">
+    <main className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
-        <h1 className="mb-6 text-center text-3xl font-bold text-blue-600">
-          AL-SAT AI
-        </h1>
+        <Link href="/" className="block">
+          <h1 className="mb-6 text-center text-3xl font-bold text-blue-600">
+            AL-SAT AI
+          </h1>
+        </Link>
 
         <h2 className="mb-6 text-center text-xl font-semibold">
           Hesabına Giriş Yap
@@ -63,23 +66,32 @@ export default function GirisPage() {
               girisYap();
             }
           }}
-          className="mb-6 w-full rounded-lg border p-3"
+          className="w-full rounded-lg border p-3"
         />
+
+        <div className="mb-6 mt-3 text-right">
+          <Link
+            href="/sifremi-unuttum"
+            className="text-sm font-semibold text-blue-600 hover:underline"
+          >
+            Şifremi Unuttum
+          </Link>
+        </div>
 
         <button
           type="button"
           onClick={girisYap}
           disabled={yukleniyor}
-          className="w-full rounded-lg bg-blue-600 py-3 text-white hover:bg-blue-700 disabled:opacity-60"
+          className="w-full rounded-lg bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
         >
           {yukleniyor ? "Giriş Yapılıyor..." : "Giriş Yap"}
         </button>
 
         <p className="mt-6 text-center text-gray-600">
           Hesabın yok mu?{" "}
-          <a href="/kayit" className="font-semibold text-blue-600">
+          <Link href="/kayit" className="font-semibold text-blue-600">
             Kayıt Ol
-          </a>
+          </Link>
         </p>
       </div>
     </main>

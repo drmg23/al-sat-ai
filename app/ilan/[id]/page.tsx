@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
@@ -20,6 +20,7 @@ type Ilan = {
 
 export default function IlanDetayPage() {
   const params = useParams();
+  const router = useRouter();
   const ilanId = params.id as string;
 
   const [ilan, setIlan] = useState<Ilan | null>(null);
@@ -28,6 +29,7 @@ export default function IlanDetayPage() {
   const [aktifFotograf, setAktifFotograf] = useState(0);
   const [telefonAcik, setTelefonAcik] = useState(false);
   const [favori, setFavori] = useState(false);
+  const [favoriIslemi, setFavoriIslemi] = useState(false);
 
   useEffect(() => {
     async function ilaniGetir() {
@@ -50,6 +52,26 @@ export default function IlanDetayPage() {
       }
 
       setIlan(data);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: favoriKaydi, error: favoriHatasi } = await supabase
+          .from("favoriler")
+          .select("ilan_id")
+          .eq("kullanici_id", user.id)
+          .eq("ilan_id", ilanId)
+          .maybeSingle();
+
+        if (favoriHatasi) {
+          console.error(favoriHatasi);
+        } else {
+          setFavori(Boolean(favoriKaydi));
+        }
+      }
+
       setYukleniyor(false);
     }
 
@@ -89,6 +111,60 @@ export default function IlanDetayPage() {
     } catch {
       // Kullanıcı paylaşım penceresini kapatırsa işlem yapılmaz.
     }
+  }
+
+  async function favoriyiDegistir() {
+    if (!ilan || favoriIslemi) return;
+
+    setFavoriIslemi(true);
+
+    const {
+      data: { user },
+      error: kullaniciHatasi,
+    } = await supabase.auth.getUser();
+
+    if (kullaniciHatasi || !user) {
+      setFavoriIslemi(false);
+      alert("Favorilere eklemek için giriş yapmalısınız.");
+      router.push("/giris");
+      return;
+    }
+
+    if (favori) {
+      const { error } = await supabase
+        .from("favoriler")
+        .delete()
+        .eq("kullanici_id", user.id)
+        .eq("ilan_id", ilan.id);
+
+      if (error) {
+        console.error(error);
+        alert("Favori kaldırılamadı: " + error.message);
+      } else {
+        setFavori(false);
+        alert("İlan favorilerden çıkarıldı.");
+      }
+    } else {
+      const { error } = await supabase.from("favoriler").insert({
+        kullanici_id: user.id,
+        ilan_id: ilan.id,
+      });
+
+      if (error) {
+        console.error(error);
+
+        if (error.code === "23505") {
+          setFavori(true);
+        } else {
+          alert("İlan favorilere eklenemedi: " + error.message);
+        }
+      } else {
+        setFavori(true);
+        alert("İlan favorilere eklendi.");
+      }
+    }
+
+    setFavoriIslemi(false);
   }
 
   if (yukleniyor) {
@@ -300,14 +376,19 @@ export default function IlanDetayPage() {
 
                 <button
                   type="button"
-                  onClick={() => setFavori(!favori)}
+                  onClick={favoriyiDegistir}
+                  disabled={favoriIslemi}
                   className={`w-full rounded-xl border px-5 py-4 font-bold transition ${
                     favori
                       ? "border-rose-300 bg-rose-50 text-rose-600"
                       : "border-slate-200 text-slate-700 hover:border-rose-300"
-                  }`}
+                  } ${favoriIslemi ? "cursor-wait opacity-60" : ""}`}
                 >
-                  {favori ? "♥ Favorilerde" : "♡ Favorilere Ekle"}
+                  {favoriIslemi
+                    ? "İşleniyor..."
+                    : favori
+                      ? "♥ Favorilerde"
+                      : "♡ Favorilere Ekle"}
                 </button>
 
                 <button

@@ -136,6 +136,10 @@ export default function Home() {
             <div className="header-buttons">
               {!oturumKontrolEdiliyor && kullaniciVar ? (
                 <>
+                  <Link href="/favorilerim" className="login-button">
+                    ❤️ Favorilerim
+                  </Link>
+
                   <Link href="/ilanlarim" className="login-button">
                     Benim İlanlarım
                   </Link>
@@ -378,7 +382,7 @@ export default function Home() {
               <Link href="/giris">Giriş yap</Link>
               <Link href="/kayit">Kayıt ol</Link>
               <Link href="/ilanlarim">Benim ilanlarım</Link>
-              <a href="#">Favorilerim</a>
+              <Link href="/favorilerim">Favorilerim</Link>
             </div>
 
             <div>

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Ilan = {
-  id: string;
+  id: number;
   baslik: string;
   aciklama: string;
   fiyat: number;
@@ -17,34 +18,115 @@ type Ilan = {
 };
 
 export default function IlanlarPage() {
+  const router = useRouter();
+
   const [ilanlar, setIlanlar] = useState<Ilan[]>([]);
+  const [favoriler, setFavoriler] = useState<Set<number>>(new Set());
+  const [kullaniciId, setKullaniciId] = useState<string | null>(null);
+  const [islemdekiIlan, setIslemdekiIlan] = useState<number | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState("");
 
   useEffect(() => {
-    ilanlariGetir();
+    sayfayiHazirla();
   }, []);
 
-  async function ilanlariGetir() {
+  async function sayfayiHazirla() {
     setYukleniyor(true);
     setHata("");
 
-    const { data, error } = await supabase
+    const { data: ilanVerileri, error: ilanHatasi } = await supabase
       .from("ilanlar")
       .select(
         "id, baslik, aciklama, fiyat, kategori, sehir, ilce, fotograflar, created_at"
       )
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
+    if (ilanHatasi) {
+      console.error(ilanHatasi);
       setHata("İlanlar yüklenirken bir hata oluştu.");
       setYukleniyor(false);
       return;
     }
 
-    setIlanlar(data ?? []);
+    setIlanlar(ilanVerileri ?? []);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      setKullaniciId(user.id);
+
+      const { data: favoriVerileri, error: favoriHatasi } = await supabase
+        .from("favoriler")
+        .select("ilan_id")
+        .eq("kullanici_id", user.id);
+
+      if (favoriHatasi) {
+        console.error(favoriHatasi);
+      } else {
+        const favoriNumaralari = new Set<number>(
+          (favoriVerileri ?? []).map((favori) => Number(favori.ilan_id))
+        );
+
+        setFavoriler(favoriNumaralari);
+      }
+    }
+
     setYukleniyor(false);
+  }
+
+  async function favoriyiDegistir(ilanId: number) {
+    if (!kullaniciId) {
+      router.push("/giris");
+      return;
+    }
+
+    if (islemdekiIlan !== null) {
+      return;
+    }
+
+    setIslemdekiIlan(ilanId);
+
+    const favorideMi = favoriler.has(ilanId);
+
+    if (favorideMi) {
+      const { error } = await supabase
+        .from("favoriler")
+        .delete()
+        .eq("kullanici_id", kullaniciId)
+        .eq("ilan_id", ilanId);
+
+      if (error) {
+        console.error(error);
+        alert("Favori kaldırılırken bir hata oluştu.");
+      } else {
+        setFavoriler((oncekiFavoriler) => {
+          const yeniFavoriler = new Set(oncekiFavoriler);
+          yeniFavoriler.delete(ilanId);
+          return yeniFavoriler;
+        });
+      }
+    } else {
+      const { error } = await supabase.from("favoriler").insert({
+        kullanici_id: kullaniciId,
+        ilan_id: ilanId,
+      });
+
+      if (error) {
+        console.error(error);
+        alert("İlan favorilere eklenirken bir hata oluştu.");
+      } else {
+        setFavoriler((oncekiFavoriler) => {
+          const yeniFavoriler = new Set(oncekiFavoriler);
+          yeniFavoriler.add(ilanId);
+          return yeniFavoriler;
+        });
+      }
+    }
+
+    setIslemdekiIlan(null);
   }
 
   return (
@@ -55,12 +137,21 @@ export default function IlanlarPage() {
             AL-SAT AI
           </Link>
 
-          <Link
-            href="/ilan-ver"
-            className="rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white"
-          >
-            + İlan Ver
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/favorilerim"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 font-bold text-red-600"
+            >
+              ♥ Favorilerim
+            </Link>
+
+            <Link
+              href="/ilan-ver"
+              className="rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white"
+            >
+              + İlan Ver
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -71,7 +162,7 @@ export default function IlanlarPage() {
           </h1>
 
           <p className="mt-2 text-slate-500">
-            Yayındaki ilanları inceleyin.
+            Beğendiğiniz ilanları kalp düğmesine basarak kaydedebilirsiniz.
           </p>
         </div>
 
@@ -116,45 +207,76 @@ export default function IlanlarPage() {
                   ? ilan.fotograflar[0]
                   : null;
 
+              const favorideMi = favoriler.has(ilan.id);
+              const islemdeMi = islemdekiIlan === ilan.id;
+
               return (
-                <Link
-                  href={`/ilan/${ilan.id}`}
+                <div
                   key={ilan.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                  className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
                 >
-                  <div className="h-56 bg-slate-200">
-                    {kapakFotografi ? (
-                      <img
-                        src={kapakFotografi}
-                        alt={ilan.baslik}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-6xl">
-                        📷
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => favoriyiDegistir(ilan.id)}
+                    disabled={islemdeMi}
+                    aria-label={
+                      favorideMi
+                        ? "Favorilerden çıkar"
+                        : "Favorilere ekle"
+                    }
+                    title={
+                      favorideMi
+                        ? "Favorilerden çıkar"
+                        : "Favorilere ekle"
+                    }
+                    className={`absolute right-4 top-4 z-10 flex h-12 w-12 items-center justify-center rounded-full text-3xl shadow-lg transition ${
+                      favorideMi
+                        ? "bg-red-500 text-white"
+                        : "bg-white text-slate-400 hover:text-red-500"
+                    } ${
+                      islemdeMi
+                        ? "cursor-wait opacity-60"
+                        : "hover:scale-110"
+                    }`}
+                  >
+                    {favorideMi ? "♥" : "♡"}
+                  </button>
 
-                  <div className="p-5">
-                    <span className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                      {ilan.kategori}
-                    </span>
-
-                    <h2 className="mt-3 line-clamp-2 text-lg font-black text-slate-900">
-                      {ilan.baslik}
-                    </h2>
-
-                    <p className="mt-2 text-sm text-slate-500">
-                      📍 {ilan.ilce ? `${ilan.ilce}, ` : ""}
-                      {ilan.sehir}
-                    </p>
-
-                    <div className="mt-5 text-xl font-black text-emerald-700">
-                      {Number(ilan.fiyat).toLocaleString("tr-TR")} TL
+                  <Link href={`/ilan/${ilan.id}`} className="block">
+                    <div className="h-56 bg-slate-200">
+                      {kapakFotografi ? (
+                        <img
+                          src={kapakFotografi}
+                          alt={ilan.baslik}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-6xl">
+                          📷
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </Link>
+
+                    <div className="p-5">
+                      <span className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                        {ilan.kategori}
+                      </span>
+
+                      <h2 className="mt-3 line-clamp-2 text-lg font-black text-slate-900">
+                        {ilan.baslik}
+                      </h2>
+
+                      <p className="mt-2 text-sm text-slate-500">
+                        📍 {ilan.ilce ? `${ilan.ilce}, ` : ""}
+                        {ilan.sehir}
+                      </p>
+
+                      <div className="mt-5 text-xl font-black text-emerald-700">
+                        {Number(ilan.fiyat).toLocaleString("tr-TR")} TL
+                      </div>
+                    </div>
+                  </Link>
+                </div>
               );
             })}
           </div>

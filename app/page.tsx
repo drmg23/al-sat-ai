@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase";
 
 const categories = [
@@ -82,6 +82,8 @@ const featuredListings = [
 export default function Home() {
   const [kullaniciVar, setKullaniciVar] = useState(false);
   const [oturumKontrolEdiliyor, setOturumKontrolEdiliyor] = useState(true);
+  const [aramaMetni, setAramaMetni] = useState("");
+  const [seciliSehir, setSeciliSehir] = useState("");
 
   useEffect(() => {
     async function oturumuKontrolEt() {
@@ -115,6 +117,24 @@ export default function Home() {
 
     setKullaniciVar(false);
     window.location.href = "/";
+  }
+
+  function ilanAra(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const parametreler = new URLSearchParams();
+    const temizAramaMetni = aramaMetni.trim();
+
+    if (temizAramaMetni) {
+      parametreler.set("arama", temizAramaMetni);
+    }
+
+    if (seciliSehir) {
+      parametreler.set("sehir", seciliSehir);
+    }
+
+    const sorgu = parametreler.toString();
+    window.location.href = sorgu ? `/ilan?${sorgu}` : "/ilan";
   }
 
   return (
@@ -182,27 +202,30 @@ export default function Home() {
                 keşfet. Yapay zekâ desteğiyle ilanını saniyeler içinde hazırla.
               </p>
 
-              <div className="search-box">
+              <form className="search-box" onSubmit={ilanAra}>
                 <input
                   type="text"
+                  value={aramaMetni}
+                  onChange={(event) => setAramaMetni(event.target.value)}
                   placeholder="Ev, araç, arsa veya ürün ara..."
                 />
 
-                <select defaultValue="">
-                  <option value="" disabled>
-                    Tüm Türkiye
-                  </option>
-                  <option>İstanbul</option>
-                  <option>Ankara</option>
-                  <option>İzmir</option>
-                  <option>Bursa</option>
-                  <option>Antalya</option>
+                <select
+                  value={seciliSehir}
+                  onChange={(event) => setSeciliSehir(event.target.value)}
+                >
+                  <option value="">Tüm Türkiye</option>
+                  <option value="İstanbul">İstanbul</option>
+                  <option value="Ankara">Ankara</option>
+                  <option value="İzmir">İzmir</option>
+                  <option value="Bursa">Bursa</option>
+                  <option value="Antalya">Antalya</option>
                 </select>
 
-                <Link href="/ilan" className="search-button">
+                <button type="submit" className="search-button">
                   🔍 İlan Ara
-                </Link>
-              </div>
+                </button>
+              </form>
 
               <div className="hero-features">
                 <span>✓ Güvenli ilanlar</span>

@@ -34,6 +34,11 @@ export default function IlanlarPage() {
   const [enYuksekFiyat, setEnYuksekFiyat] = useState("");
 
   useEffect(() => {
+    const parametreler = new URLSearchParams(window.location.search);
+
+    setAramaMetni(parametreler.get("arama") ?? "");
+    setSeciliSehir(parametreler.get("sehir") ?? "");
+
     sayfayiHazirla();
   }, []);
 
@@ -97,10 +102,8 @@ export default function IlanlarPage() {
 
   const filtrelenmisIlanlar = useMemo(() => {
     const arama = aramaMetni.trim().toLocaleLowerCase("tr-TR");
-
     const minimumFiyat =
       enDusukFiyat === "" ? null : Number(enDusukFiyat);
-
     const maksimumFiyat =
       enYuksekFiyat === "" ? null : Number(enYuksekFiyat);
 

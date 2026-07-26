@@ -28,8 +28,16 @@ const cities = [
   "Mersin",
 ];
 
+type GeneratedListing = {
+  title: string;
+  description: string;
+  suggestedPrice: number;
+  priceNote: string;
+};
+
 export default function IlanVerPage() {
   const router = useRouter();
+  const [aiDetails, setAiDetails] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -87,9 +95,9 @@ export default function IlanVerPage() {
     );
   }
 
-  function generateDescription() {
-    if (!title.trim()) {
-      alert("Önce ilan başlığını yazın.");
+  async function generateListing() {
+    if (!aiDetails.trim()) {
+      alert("Önce ürün, araç, emlak veya arsa hakkında kısa bilgi yazın.");
       return;
     }
 
@@ -100,23 +108,64 @@ export default function IlanVerPage() {
 
     setIsGenerating(true);
 
-    setTimeout(() => {
-      const location =
-        city && district
-          ? `${district}, ${city}`
-          : city
-            ? city
-            : "uygun konumda";
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const priceText = price
-        ? `İlan fiyatı ${Number(price).toLocaleString("tr-TR")} TL'dir.`
-        : "Fiyat bilgisi için iletişime geçebilirsiniz.";
+      if (!session) {
+        alert("Yapay zekâyı kullanmak için önce giriş yapmalısınız.");
+        router.push("/giris");
+        return;
+      }
 
-      const generatedText = `${title}, ${location} bölgesinde satışa sunulmuştur. Ürün temiz ve özenli kullanılmıştır. ${category} kategorisinde yer alan bu ilan, özellikleri ve uygunluğu ile dikkat çekmektedir. ${priceText} Detaylı bilgi almak, ürünü incelemek veya görüşme sağlamak için iletişime geçebilirsiniz. Ciddi alıcılarla uygun şekilde görüşülecektir.`;
+      const response = await fetch("/api/ilan-olustur", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          details: aiDetails.trim(),
+          category,
+          city,
+          district: district.trim(),
+          currentTitle: title.trim(),
+          currentPrice: price ? Number(price) : null,
+        }),
+      });
 
-      setDescription(generatedText);
+      const result = (await response.json()) as
+        | GeneratedListing
+        | { error: string };
+
+      if (!response.ok || "error" in result) {
+        throw new Error(
+          "error" in result
+            ? result.error
+            : "Yapay zekâ yanıtı alınamadı."
+        );
+      }
+
+      setTitle(result.title.slice(0, 80));
+      setDescription(result.description.slice(0, 1500));
+
+      if (result.suggestedPrice > 0) {
+        setPrice(String(Math.round(result.suggestedPrice)));
+      }
+
+      alert(
+        `İlan bilgileri hazırlandı.\n\nFiyat notu: ${result.priceNote}`
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Yapay zekâ kullanılırken bir hata oluştu.";
+      alert(message);
+    } finally {
       setIsGenerating(false);
-    }, 900);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -216,7 +265,7 @@ export default function IlanVerPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 text-center">
           <div className="mb-3 inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
-            AL-SAT WEB
+            AL-SAT AI
           </div>
 
           <h1 className="text-3xl font-black text-slate-950 sm:text-4xl">
@@ -241,6 +290,80 @@ export default function IlanVerPage() {
           </div>
 
           <div className="space-y-8 p-6 sm:p-8">
+            <section className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-emerald-50 p-5 sm:p-6">
+              <div className="flex flex-col gap-5">
+                <div>
+                  <div className="mb-2 inline-flex rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">
+                    AL-SAT AI
+                  </div>
+
+                  <h3 className="text-xl font-black text-slate-900">
+                    İlanınızı yapay zekâ hazırlasın
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Satacağınız şeyin özelliklerini kısa şekilde yazın. Yapay
+                    zekâ başlık, açıklama ve tahmini fiyat önerisi hazırlayacak.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    Kategori
+                  </label>
+
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                    className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  >
+                    <option value="">Kategori seçiniz</option>
+
+                    {categories.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    Kısa bilgiler
+                  </label>
+
+                  <textarea
+                    value={aiDetails}
+                    onChange={(event) => setAiDetails(event.target.value)}
+                    placeholder="Örneğin: 2012 Volkswagen Passat, dizel, otomatik, 185.000 km, değişensiz, bakımları yeni yapıldı..."
+                    rows={4}
+                    maxLength={600}
+                    className="w-full resize-none rounded-xl border border-blue-200 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+
+                  <div className="mt-1 text-right text-xs text-slate-400">
+                    {aiDetails.length}/600
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={generateListing}
+                  disabled={isGenerating}
+                  className="self-start rounded-xl bg-blue-600 px-6 py-3 font-black text-white shadow-lg transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isGenerating
+                    ? "Yapay zekâ hazırlıyor..."
+                    : "✨ Başlık, Açıklama ve Fiyat Öner"}
+                </button>
+
+                <p className="text-xs leading-5 text-slate-500">
+                  Fiyat önerisi tahminidir. İlanı yayımlamadan önce piyasa
+                  koşullarına göre kontrol edin.
+                </p>
+              </div>
+            </section>
+
             <section>
               <h3 className="mb-5 text-lg font-black text-slate-900">
                 Temel bilgiler
@@ -325,13 +448,13 @@ export default function IlanVerPage() {
 
                 <button
                   type="button"
-                  onClick={generateDescription}
+                  onClick={generateListing}
                   disabled={isGenerating}
                   className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isGenerating
-                    ? "Açıklama hazırlanıyor..."
-                    : "🤖 Yapay Zekâ ile Oluştur"}
+                    ? "İlan hazırlanıyor..."
+                    : "🤖 Yapay Zekâ ile Yenile"}
                 </button>
               </div>
 

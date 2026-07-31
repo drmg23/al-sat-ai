@@ -81,9 +81,20 @@ const featuredListings = [
 
 export default function Home() {
   const [kullaniciVar, setKullaniciVar] = useState(false);
+  const [yoneticiMi, setYoneticiMi] = useState(false);
   const [oturumKontrolEdiliyor, setOturumKontrolEdiliyor] = useState(true);
   const [aramaMetni, setAramaMetni] = useState("");
   const [seciliSehir, setSeciliSehir] = useState("");
+
+  async function yoneticiDurumunuKontrolEt(girisYapilmisMi: boolean) {
+    if (!girisYapilmisMi) {
+      setYoneticiMi(false);
+      return;
+    }
+
+    const { data: adminMi, error } = await supabase.rpc("is_admin");
+    setYoneticiMi(!error && adminMi === true);
+  }
 
   useEffect(() => {
     async function oturumuKontrolEt() {
@@ -91,7 +102,9 @@ export default function Home() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      setKullaniciVar(Boolean(session?.user));
+      const girisYapilmisMi = Boolean(session?.user);
+      setKullaniciVar(girisYapilmisMi);
+      await yoneticiDurumunuKontrolEt(girisYapilmisMi);
       setOturumKontrolEdiliyor(false);
     }
 
@@ -100,7 +113,11 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setKullaniciVar(Boolean(session?.user));
+      const girisYapilmisMi = Boolean(session?.user);
+      setKullaniciVar(girisYapilmisMi);
+      setTimeout(() => {
+        void yoneticiDurumunuKontrolEt(girisYapilmisMi);
+      }, 0);
       setOturumKontrolEdiliyor(false);
     });
 
@@ -116,6 +133,7 @@ export default function Home() {
     }
 
     setKullaniciVar(false);
+    setYoneticiMi(false);
     window.location.href = "/";
   }
 
@@ -156,6 +174,12 @@ export default function Home() {
             <div className="header-buttons">
               {!oturumKontrolEdiliyor && kullaniciVar ? (
                 <>
+                  {yoneticiMi && (
+                    <Link href="/admin" className="admin-button">
+                      🛡️ Yönetici Paneli
+                    </Link>
+                  )}
+
                   <Link href="/favorilerim" className="login-button">
                     ❤️ Favorilerim
                   </Link>
@@ -516,12 +540,23 @@ export default function Home() {
           gap: 12px;
         }
 
+        .admin-button,
         .login-button,
         .logout-button,
         .create-button {
           padding: 12px 17px;
           border-radius: 12px;
           font-weight: 800;
+        }
+
+        .admin-button {
+          color: white;
+          background: linear-gradient(135deg, #4338ca, #2563eb);
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+        }
+
+        .admin-button:hover {
+          transform: translateY(-1px);
         }
 
         .login-button {

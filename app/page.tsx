@@ -180,6 +180,10 @@ export default function Home() {
                     </Link>
                   )}
 
+                  <Link href="/mesajlarim" className="login-button">
+                    ✉️ Mesajlarım
+                  </Link>
+
                   <Link href="/favorilerim" className="login-button">
                     ❤️ Favorilerim
                   </Link>
@@ -429,6 +433,7 @@ export default function Home() {
               <Link href="/giris">Giriş yap</Link>
               <Link href="/kayit">Kayıt ol</Link>
               <Link href="/ilanlarim">Benim ilanlarım</Link>
+              <Link href="/mesajlarim">Mesajlarım</Link>
               <Link href="/favorilerim">Favorilerim</Link>
             </div>
 

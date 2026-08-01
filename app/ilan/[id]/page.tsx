@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "../../../lib/supabase";
 
 type Ilan = {
   id: string;
+  user_id: string;
   baslik: string;
   aciklama: string | null;
   fiyat: number;
@@ -30,6 +31,11 @@ export default function IlanDetayPage() {
   const [telefonAcik, setTelefonAcik] = useState(false);
   const [favori, setFavori] = useState(false);
   const [favoriIslemi, setFavoriIslemi] = useState(false);
+  const [oturumKullaniciId, setOturumKullaniciId] = useState<string | null>(
+    null
+  );
+  const [mesaj, setMesaj] = useState("");
+  const [mesajGonderiliyor, setMesajGonderiliyor] = useState(false);
 
   useEffect(() => {
     async function ilaniGetir() {
@@ -58,6 +64,8 @@ export default function IlanDetayPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
+        setOturumKullaniciId(user.id);
+
         const { data: favoriKaydi, error: favoriHatasi } = await supabase
           .from("favoriler")
           .select("ilan_id")
@@ -165,6 +173,64 @@ export default function IlanDetayPage() {
     }
 
     setFavoriIslemi(false);
+  }
+
+  async function mesajGonder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!ilan || mesajGonderiliyor) return;
+
+    const temizMesaj = mesaj.trim();
+
+    if (!temizMesaj) {
+      alert("Lütfen göndermek istediğiniz mesajı yazın.");
+      return;
+    }
+
+    if (temizMesaj.length > 2000) {
+      alert("Mesaj en fazla 2.000 karakter olabilir.");
+      return;
+    }
+
+    setMesajGonderiliyor(true);
+
+    const {
+      data: { user },
+      error: kullaniciHatasi,
+    } = await supabase.auth.getUser();
+
+    if (kullaniciHatasi || !user) {
+      setMesajGonderiliyor(false);
+      alert("Mesaj göndermek için giriş yapmalısınız.");
+      router.push("/giris");
+      return;
+    }
+
+    if (user.id === ilan.user_id) {
+      setMesajGonderiliyor(false);
+      alert("Kendi ilanınıza mesaj gönderemezsiniz.");
+      return;
+    }
+
+    const { error } = await supabase.from("mesajlar").insert({
+      ilan_id: Number(ilan.id),
+      ilan_sahibi_id: ilan.user_id,
+      ilgili_kullanici_id: user.id,
+      gonderen_id: user.id,
+      icerik: temizMesaj,
+    });
+
+    if (error) {
+      console.error(error);
+      alert("Mesaj gönderilemedi: " + error.message);
+      setMesajGonderiliyor(false);
+      return;
+    }
+
+    setOturumKullaniciId(user.id);
+    setMesaj("");
+    setMesajGonderiliyor(false);
+    alert("Mesajınız ilan sahibine gönderildi.");
   }
 
   if (yukleniyor) {
@@ -399,6 +465,51 @@ export default function IlanDetayPage() {
                   ↗ İlanı Paylaş
                 </button>
               </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-black">
+                İlan Sahibine Mesaj Gönder
+              </h2>
+
+              {oturumKullaniciId === ilan.user_id ? (
+                <div className="mt-4 rounded-xl bg-blue-50 p-4 text-sm font-semibold text-blue-700">
+                  Bu ilan size ait. Gelen mesajları Mesajlarım sayfasından
+                  görüntüleyebilirsiniz.
+                </div>
+              ) : (
+                <form onSubmit={mesajGonder} className="mt-4 space-y-3">
+                  {!oturumKullaniciId && (
+                    <p className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700">
+                      Mesaj göndermek için giriş yapmalısınız.
+                    </p>
+                  )}
+
+                  <textarea
+                    rows={5}
+                    maxLength={2000}
+                    value={mesaj}
+                    onChange={(event) => setMesaj(event.target.value)}
+                    placeholder="İlan hakkında sormak istediğiniz mesajı yazın..."
+                    className="w-full resize-y rounded-xl border border-slate-300 p-4 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  />
+
+                  <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+                    <span>Kişisel veya finansal bilgilerinizi paylaşmayın.</span>
+                    <span>{mesaj.length}/2000</span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={mesajGonderiliyor}
+                    className="w-full rounded-xl bg-blue-600 px-5 py-4 font-bold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {mesajGonderiliyor
+                      ? "Gönderiliyor..."
+                      : "✉ Mesaj Gönder"}
+                  </button>
+                </form>
+              )}
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

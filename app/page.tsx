@@ -82,6 +82,7 @@ const featuredListings = [
 export default function Home() {
   const [kullaniciVar, setKullaniciVar] = useState(false);
   const [yoneticiMi, setYoneticiMi] = useState(false);
+  const [okunmamisMesajSayisi, setOkunmamisMesajSayisi] = useState(0);
   const [oturumKontrolEdiliyor, setOturumKontrolEdiliyor] = useState(true);
   const [aramaMetni, setAramaMetni] = useState("");
   const [seciliSehir, setSeciliSehir] = useState("");
@@ -96,15 +97,34 @@ export default function Home() {
     setYoneticiMi(!error && adminMi === true);
   }
 
+  async function okunmamisMesajSayisiniGetir(kullaniciId?: string) {
+    if (!kullaniciId) {
+      setOkunmamisMesajSayisi(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from("mesajlar")
+      .select("id", { count: "exact", head: true })
+      .eq("okundu", false)
+      .neq("gonderen_id", kullaniciId);
+
+    setOkunmamisMesajSayisi(error ? 0 : count ?? 0);
+  }
+
   useEffect(() => {
     async function oturumuKontrolEt() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      const girisYapilmisMi = Boolean(session?.user);
+      const kullaniciId = session?.user?.id;
+      const girisYapilmisMi = Boolean(kullaniciId);
       setKullaniciVar(girisYapilmisMi);
-      await yoneticiDurumunuKontrolEt(girisYapilmisMi);
+      await Promise.all([
+        yoneticiDurumunuKontrolEt(girisYapilmisMi),
+        okunmamisMesajSayisiniGetir(kullaniciId),
+      ]);
       setOturumKontrolEdiliyor(false);
     }
 
@@ -113,10 +133,14 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const girisYapilmisMi = Boolean(session?.user);
+      const kullaniciId = session?.user?.id;
+      const girisYapilmisMi = Boolean(kullaniciId);
       setKullaniciVar(girisYapilmisMi);
       setTimeout(() => {
-        void yoneticiDurumunuKontrolEt(girisYapilmisMi);
+        void Promise.all([
+          yoneticiDurumunuKontrolEt(girisYapilmisMi),
+          okunmamisMesajSayisiniGetir(kullaniciId),
+        ]);
       }, 0);
       setOturumKontrolEdiliyor(false);
     });
@@ -134,6 +158,7 @@ export default function Home() {
 
     setKullaniciVar(false);
     setYoneticiMi(false);
+    setOkunmamisMesajSayisi(0);
     window.location.href = "/";
   }
 
@@ -180,8 +205,18 @@ export default function Home() {
                     </Link>
                   )}
 
-                  <Link href="/mesajlarim" className="login-button">
-                    ✉️ Mesajlarım
+                  <Link
+                    href="/mesajlarim"
+                    className="login-button message-button"
+                  >
+                    <span>✉️ Mesajlarım</span>
+                    {okunmamisMesajSayisi > 0 && (
+                      <span className="message-badge">
+                        {okunmamisMesajSayisi > 99
+                          ? "99+"
+                          : okunmamisMesajSayisi}
+                      </span>
+                    )}
                   </Link>
 
                   <Link href="/favorilerim" className="login-button">
@@ -566,6 +601,28 @@ export default function Home() {
 
         .login-button {
           color: #31505e;
+        }
+
+        .message-button {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .message-badge {
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          color: #ffffff;
+          background: #ef4444;
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1;
+          box-shadow: 0 3px 9px rgba(239, 68, 68, 0.3);
         }
 
         .logout-button {

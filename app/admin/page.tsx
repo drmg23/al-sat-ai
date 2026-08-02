@@ -80,10 +80,7 @@ export default function AdminPage() {
 
     setSilinenId(id);
 
-    const { error } = await supabase
-      .from("ilanlar")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("ilanlar").delete().eq("id", id);
 
     if (error) {
       alert("İlan silinemedi: " + error.message);
@@ -156,17 +153,26 @@ export default function AdminPage() {
             </p>
           </div>
 
-          <Link
-            href="/"
-            className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700"
-          >
-            Ana Sayfa
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/sikayetler"
+              className="rounded-xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
+            >
+              ⚠ İlan Şikâyetleri
+            </Link>
+
+            <Link
+              href="/"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700"
+            >
+              Ana Sayfa
+            </Link>
+          </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-7xl px-4 py-10">
-        <div className="mb-8 grid gap-5 sm:grid-cols-2">
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-3xl bg-blue-600 p-7 text-white shadow-sm">
             <p className="text-sm font-bold uppercase tracking-wider text-blue-100">
               Toplam ilan
@@ -184,6 +190,19 @@ export default function AdminPage() {
               Yönetici girişi aktif
             </p>
           </div>
+
+          <Link
+            href="/admin/sikayetler"
+            className="group rounded-3xl bg-red-600 p-7 text-white shadow-sm transition hover:-translate-y-1 hover:bg-red-700 hover:shadow-lg sm:col-span-2 lg:col-span-1"
+          >
+            <p className="text-sm font-bold uppercase tracking-wider text-red-100">
+              Bildirim merkezi
+            </p>
+
+            <p className="mt-3 text-2xl font-black">
+              İlan Şikâyetlerini İncele →
+            </p>
+          </Link>
         </div>
 
         <div className="mb-7">

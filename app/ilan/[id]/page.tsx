@@ -19,6 +19,15 @@ type Ilan = {
   created_at?: string;
 };
 
+const sikayetNedenleri = [
+  "Sahte veya yanıltıcı ilan",
+  "Yasaklı ürün veya hizmet",
+  "Uygunsuz içerik",
+  "Spam veya mükerrer ilan",
+  "Yanlış kategori veya bilgi",
+  "Diğer",
+];
+
 export default function IlanDetayPage() {
   const params = useParams();
   const router = useRouter();
@@ -36,6 +45,11 @@ export default function IlanDetayPage() {
   );
   const [mesaj, setMesaj] = useState("");
   const [mesajGonderiliyor, setMesajGonderiliyor] = useState(false);
+  const [sikayetFormuAcik, setSikayetFormuAcik] = useState(false);
+  const [sikayetNedeni, setSikayetNedeni] = useState("");
+  const [sikayetAciklamasi, setSikayetAciklamasi] = useState("");
+  const [sikayetGonderiliyor, setSikayetGonderiliyor] = useState(false);
+  const [sikayetGonderildi, setSikayetGonderildi] = useState(false);
 
   useEffect(() => {
     async function ilaniGetir() {
@@ -77,6 +91,22 @@ export default function IlanDetayPage() {
           console.error(favoriHatasi);
         } else {
           setFavori(Boolean(favoriKaydi));
+        }
+
+        if (user.id !== data.user_id) {
+          const { data: sikayetKaydi, error: sikayetKontrolHatasi } =
+            await supabase
+              .from("ilan_sikayetleri")
+              .select("id")
+              .eq("ilan_id", Number(ilanId))
+              .eq("sikayet_eden_id", user.id)
+              .maybeSingle();
+
+          if (sikayetKontrolHatasi) {
+            console.error(sikayetKontrolHatasi);
+          } else {
+            setSikayetGonderildi(Boolean(sikayetKaydi));
+          }
         }
       }
 
@@ -231,6 +261,79 @@ export default function IlanDetayPage() {
     setMesaj("");
     setMesajGonderiliyor(false);
     alert("Mesajınız ilan sahibine gönderildi.");
+  }
+
+  async function sikayetGonder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!ilan || sikayetGonderiliyor || sikayetGonderildi) return;
+
+    if (!sikayetNedeni) {
+      alert("Lütfen şikâyet nedenini seçin.");
+      return;
+    }
+
+    const temizAciklama = sikayetAciklamasi.trim();
+
+    if (temizAciklama && temizAciklama.length < 3) {
+      alert("Açıklama yazacaksanız en az 3 karakter olmalıdır.");
+      return;
+    }
+
+    if (temizAciklama.length > 1000) {
+      alert("Şikâyet açıklaması en fazla 1.000 karakter olabilir.");
+      return;
+    }
+
+    setSikayetGonderiliyor(true);
+
+    const {
+      data: { user },
+      error: kullaniciHatasi,
+    } = await supabase.auth.getUser();
+
+    if (kullaniciHatasi || !user) {
+      setSikayetGonderiliyor(false);
+      alert("İlanı şikâyet etmek için giriş yapmalısınız.");
+      router.push("/giris");
+      return;
+    }
+
+    if (user.id === ilan.user_id) {
+      setSikayetGonderiliyor(false);
+      alert("Kendi ilanınızı şikâyet edemezsiniz.");
+      return;
+    }
+
+    const { error } = await supabase.from("ilan_sikayetleri").insert({
+      ilan_id: Number(ilan.id),
+      sikayet_eden_id: user.id,
+      neden: sikayetNedeni,
+      aciklama: temizAciklama || null,
+    });
+
+    if (error) {
+      console.error(error);
+      setSikayetGonderiliyor(false);
+
+      if (error.code === "23505") {
+        setSikayetGonderildi(true);
+        setSikayetFormuAcik(false);
+        alert("Bu ilanı daha önce şikâyet etmişsiniz.");
+      } else {
+        alert("Şikâyet gönderilemedi: " + error.message);
+      }
+
+      return;
+    }
+
+    setOturumKullaniciId(user.id);
+    setSikayetGonderildi(true);
+    setSikayetFormuAcik(false);
+    setSikayetNedeni("");
+    setSikayetAciklamasi("");
+    setSikayetGonderiliyor(false);
+    alert("Şikâyetiniz yönetici incelemesine gönderildi.");
   }
 
   if (yukleniyor) {
@@ -464,6 +567,95 @@ export default function IlanDetayPage() {
                 >
                   ↗ İlanı Paylaş
                 </button>
+
+                {oturumKullaniciId !== ilan.user_id &&
+                  (sikayetGonderildi ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-center text-sm font-bold text-amber-700">
+                      ✓ Bu ilanla ilgili bildiriminiz alındı
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSikayetFormuAcik((acik) => !acik)}
+                      className="w-full rounded-xl border border-red-200 px-5 py-4 font-bold text-red-600 transition hover:bg-red-50"
+                    >
+                      ⚠ İlanı Şikâyet Et
+                    </button>
+                  ))}
+
+                {sikayetFormuAcik && !sikayetGonderildi && (
+                  <form
+                    onSubmit={sikayetGonder}
+                    className="space-y-3 rounded-2xl border border-red-100 bg-red-50 p-4"
+                  >
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-700">
+                        Şikâyet nedeni *
+                      </label>
+
+                      <select
+                        required
+                        value={sikayetNedeni}
+                        onChange={(event) =>
+                          setSikayetNedeni(event.target.value)
+                        }
+                        className="w-full rounded-xl border border-red-200 bg-white p-3 text-sm outline-none focus:border-red-400"
+                      >
+                        <option value="">Neden seçin</option>
+                        {sikayetNedenleri.map((neden) => (
+                          <option key={neden} value={neden}>
+                            {neden}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-700">
+                        Açıklama
+                      </label>
+
+                      <textarea
+                        rows={4}
+                        maxLength={1000}
+                        value={sikayetAciklamasi}
+                        onChange={(event) =>
+                          setSikayetAciklamasi(event.target.value)
+                        }
+                        placeholder="Yöneticinin incelemesine yardımcı olacak bilgileri yazın..."
+                        className="w-full resize-y rounded-xl border border-red-200 bg-white p-3 text-sm outline-none focus:border-red-400"
+                      />
+
+                      <div className="mt-1 text-right text-xs text-slate-400">
+                        {sikayetAciklamasi.length}/1000
+                      </div>
+                    </div>
+
+                    {!oturumKullaniciId && (
+                      <p className="rounded-xl bg-white p-3 text-xs font-semibold text-amber-700">
+                        Göndermek için giriş yapmanız istenecektir.
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSikayetFormuAcik(false)}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-600"
+                      >
+                        Vazgeç
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={sikayetGonderiliyor}
+                        className="rounded-xl bg-red-600 px-3 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {sikayetGonderiliyor ? "Gönderiliyor..." : "Gönder"}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
 

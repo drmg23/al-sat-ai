@@ -17,6 +17,7 @@ type Ilan = {
   fotograflar: string[] | null;
   telefon?: string | null;
   created_at?: string;
+  goruntulenme?: number | null;
 };
 
 const sikayetNedenleri = [
@@ -40,6 +41,7 @@ export default function IlanDetayPage() {
   const [telefonAcik, setTelefonAcik] = useState(false);
   const [favori, setFavori] = useState(false);
   const [favoriIslemi, setFavoriIslemi] = useState(false);
+  const [favoriSayisi, setFavoriSayisi] = useState(0);
   const [oturumKullaniciId, setOturumKullaniciId] = useState<string | null>(
     null
   );
@@ -72,6 +74,17 @@ export default function IlanDetayPage() {
       }
 
       setIlan(data);
+
+      const { count: favoriAdedi, error: favoriSayisiHatasi } = await supabase
+        .from("favoriler")
+        .select("ilan_id", { count: "exact", head: true })
+        .eq("ilan_id", ilanId);
+
+      if (favoriSayisiHatasi) {
+        console.error(favoriSayisiHatasi);
+      } else {
+        setFavoriSayisi(favoriAdedi ?? 0);
+      }
 
       const {
         data: { user },
@@ -108,6 +121,31 @@ export default function IlanDetayPage() {
             setSikayetGonderildi(Boolean(sikayetKaydi));
           }
         }
+      }
+
+      try {
+        const goruntulemeAnahtari = `ilan-goruntulendi-${ilanId}`;
+        const dahaOnceGoruntulendi = window.localStorage.getItem(goruntulemeAnahtari);
+
+        if (!dahaOnceGoruntulendi) {
+          const { data: yeniSayi, error: goruntulenmeHatasi } = await supabase.rpc(
+            "ilan_goruntulenmesini_artir",
+            { p_ilan_id: Number(ilanId) }
+          );
+
+          if (goruntulenmeHatasi) {
+            console.error(goruntulenmeHatasi);
+          } else {
+            window.localStorage.setItem(goruntulemeAnahtari, "1");
+            setIlan((mevcut) =>
+              mevcut
+                ? { ...mevcut, goruntulenme: Number(yeniSayi ?? mevcut.goruntulenme ?? 0) }
+                : mevcut
+            );
+          }
+        }
+      } catch (goruntulenmeHatasi) {
+        console.error(goruntulenmeHatasi);
       }
 
       setYukleniyor(false);
@@ -180,6 +218,7 @@ export default function IlanDetayPage() {
         alert("Favori kaldırılamadı: " + error.message);
       } else {
         setFavori(false);
+        setFavoriSayisi((mevcut) => Math.max(0, mevcut - 1));
         alert("İlan favorilerden çıkarıldı.");
       }
     } else {
@@ -198,6 +237,7 @@ export default function IlanDetayPage() {
         }
       } else {
         setFavori(true);
+        setFavoriSayisi((mevcut) => mevcut + 1);
         alert("İlan favorilere eklendi.");
       }
     }
@@ -507,6 +547,8 @@ export default function IlanDetayPage() {
                 </span>
 
                 <span>📅 {tarih}</span>
+                <span>👁️ {Number(ilan.goruntulenme ?? 0).toLocaleString("tr-TR")} görüntülenme</span>
+                <span>❤️ {favoriSayisi.toLocaleString("tr-TR")} favori</span>
                 <span>İlan No: {ilan.id}</span>
               </div>
             </section>
@@ -527,6 +569,24 @@ export default function IlanDetayPage() {
               <p className="mt-2 text-3xl font-black text-emerald-700">
                 {Number(ilan.fiyat).toLocaleString("tr-TR")} TL
               </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-slate-100 p-4 text-center">
+                  <div className="text-xl">👁️</div>
+                  <div className="mt-1 text-lg font-black text-slate-900">
+                    {Number(ilan.goruntulenme ?? 0).toLocaleString("tr-TR")}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500">Görüntülenme</div>
+                </div>
+
+                <div className="rounded-2xl bg-rose-50 p-4 text-center">
+                  <div className="text-xl">❤️</div>
+                  <div className="mt-1 text-lg font-black text-rose-600">
+                    {favoriSayisi.toLocaleString("tr-TR")}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500">Favori</div>
+                </div>
+              </div>
 
               <div className="mt-6 space-y-3">
                 {ilan.telefon ? (

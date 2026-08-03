@@ -55,29 +55,16 @@ const categories = [
   },
 ];
 
-const featuredListings = [
-  {
-    title: "2022 Model Temiz Aile Aracı",
-    location: "İstanbul, Başakşehir",
-    price: "1.245.000 TL",
-    category: "Vasıta",
-    image: "🚙",
-  },
-  {
-    title: "Site İçerisinde 3+1 Daire",
-    location: "İstanbul, Küçükçekmece",
-    price: "5.750.000 TL",
-    category: "Emlak",
-    image: "🏢",
-  },
-  {
-    title: "Garantili Akıllı Telefon",
-    location: "Ankara, Çankaya",
-    price: "32.500 TL",
-    category: "İkinci El",
-    image: "📱",
-  },
-];
+type Ilan = {
+  id: string;
+  baslik: string;
+  fiyat: number;
+  kategori: string;
+  sehir: string;
+  ilce: string | null;
+  fotograflar: string[] | null;
+  created_at: string;
+};
 
 export default function Home() {
   const [kullaniciVar, setKullaniciVar] = useState(false);
@@ -86,6 +73,9 @@ export default function Home() {
   const [oturumKontrolEdiliyor, setOturumKontrolEdiliyor] = useState(true);
   const [aramaMetni, setAramaMetni] = useState("");
   const [seciliSehir, setSeciliSehir] = useState("");
+  const [ilanlar, setIlanlar] = useState<Ilan[]>([]);
+  const [ilanlarYukleniyor, setIlanlarYukleniyor] = useState(true);
+  const [ilanlarHatasi, setIlanlarHatasi] = useState("");
 
   async function yoneticiDurumunuKontrolEt(girisYapilmisMi: boolean) {
     if (!girisYapilmisMi) {
@@ -146,6 +136,33 @@ export default function Home() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    async function sonIlanlariGetir() {
+      setIlanlarYukleniyor(true);
+      setIlanlarHatasi("");
+
+      const { data, error } = await supabase
+        .from("ilanlar")
+        .select(
+          "id, baslik, fiyat, kategori, sehir, ilce, fotograflar, created_at"
+        )
+        .order("created_at", { ascending: false })
+        .limit(12);
+
+      if (error) {
+        console.error(error);
+        setIlanlarHatasi("İlanlar yüklenirken bir hata oluştu.");
+        setIlanlar([]);
+      } else {
+        setIlanlar((data ?? []) as Ilan[]);
+      }
+
+      setIlanlarYukleniyor(false);
+    }
+
+    void sonIlanlariGetir();
   }, []);
 
   async function cikisYap() {
@@ -396,25 +413,48 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="listing-grid">
-              {featuredListings.map((listing) => (
-                <article className="listing-card" key={listing.title}>
-                  <div className="listing-image">
-                    <span>{listing.image}</span>
-                    <button type="button" aria-label="Favorilere ekle">
-                      ♡
-                    </button>
-                    <small>{listing.category}</small>
-                  </div>
+            {ilanlarYukleniyor ? (
+              <div className="listing-status">İlanlar yükleniyor...</div>
+            ) : ilanlarHatasi ? (
+              <div className="listing-status error">{ilanlarHatasi}</div>
+            ) : ilanlar.length === 0 ? (
+              <div className="listing-status">Henüz yayınlanmış ilan bulunmuyor.</div>
+            ) : (
+              <div className="listing-grid">
+                {ilanlar.map((ilan) => {
+                  const ilkFotograf = ilan.fotograflar?.[0];
+                  const konum = ilan.ilce
+                    ? `${ilan.ilce}, ${ilan.sehir}`
+                    : ilan.sehir;
 
-                  <div className="listing-content">
-                    <h3>{listing.title}</h3>
-                    <p>📍 {listing.location}</p>
-                    <strong>{listing.price}</strong>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  return (
+                    <Link
+                      href={`/ilan/${ilan.id}`}
+                      className="listing-card"
+                      key={ilan.id}
+                    >
+                      <div className="listing-image">
+                        {ilkFotograf ? (
+                          <img src={ilkFotograf} alt={ilan.baslik} />
+                        ) : (
+                          <span className="listing-placeholder">📷</span>
+                        )}
+
+                        <small>{ilan.kategori}</small>
+                      </div>
+
+                      <div className="listing-content">
+                        <h3>{ilan.baslik}</h3>
+                        <p>📍 {konum}</p>
+                        <strong>
+                          {Number(ilan.fiyat).toLocaleString("tr-TR")} TL
+                        </strong>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -965,6 +1005,22 @@ export default function Home() {
           font-size: 20px;
         }
 
+        .listing-status {
+          padding: 34px;
+          color: #5d737d;
+          background: white;
+          border: 1px solid #deebea;
+          border-radius: 18px;
+          text-align: center;
+          font-weight: 800;
+        }
+
+        .listing-status.error {
+          color: #b42318;
+          background: #fff7f7;
+          border-color: #fecaca;
+        }
+
         .listing-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -992,8 +1048,19 @@ export default function Home() {
           background: linear-gradient(135deg, #dff4ef, #e7f0fb);
         }
 
-        .listing-image > span {
-          font-size: 86px;
+        .listing-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s ease;
+        }
+
+        .listing-card:hover .listing-image img {
+          transform: scale(1.04);
+        }
+
+        .listing-placeholder {
+          font-size: 72px;
         }
 
         .listing-image button {
